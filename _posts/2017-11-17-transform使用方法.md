@@ -4,7 +4,7 @@ title:      transform属性详解
 subtitle:   
 date:       2017-11-17
 author:     Maqy
-header-img: img/home-bg-art.jpg
+header-img: img/post-bg-github-cup.jpg
 catalog: true
 tags:
     - iOS

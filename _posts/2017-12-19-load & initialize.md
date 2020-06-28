@@ -1,140 +1,167 @@
 ---
 layout:     post
-title:      router 设计
+title:      load & initialize
 subtitle:   
-date:       2017-11-19
+date:       2017-12-19
 author:     Maqy
 header-img: img/post-bg-os-metro.jpg
 catalog: true
 tags:
     - iOS
-    - router
 ---
 
-路由功能主要的作用是根据指定的URL跳转到对应的页面，同时也能够提供不同组件模块间的页面跳转。  
-其大致的实现原理是通过字典来保存URL和与其对应的VC，当有跳转需求时根据对应关系完成跳转。   
+NSObject 的分类里有两个比较常用的runtime方法
 
-### 路由基础实现   
-其原理大都是通过一个字典来保存注册表，并提供注册VC和打开VC的接口，下面就提供一个包含最基本的router功能的实例，具体如下：   
 ```
-// .h    
-@interface XCRouter : NSObject
++ (void)load;
++ (void)initialize; 
+```
 
-+ (BOOL)regisiteURL:(NSString *)url withViewController:(Class)class;
-+ (BOOL)openURL:(NSString *)url;
+方法对比：
 
+1.load是main前调用，initialize是main后，第一次初始调用对象方法的时候调用
+
+2.load不参与继承体系，initialize参与继承体系，也就是说子类会覆盖父类，分类会覆盖当前类
+
+3.对于同一个类来说，两者都只调用一次
+
+
+
+### 实践
+
+```
+/// 父类
+@interface LoadFather : NSObject
 @end
-```
-```
-// .m    
-@interface XCRouter ()
-
-@property (nonatomic, strong) NSMutableDictionary *routerDict;
-
-@end
-
-@implementation XCRouter
-
-+ (BOOL)regisiteURL:(NSString *)url withViewController:(Class)class {
-    if (!([XCRouter shareInstance].routerDict)) {
-        return NO;
-    }
-    NSMutableDictionary *dict = [XCRouter shareInstance].routerDict;
-    if (![dict objectForKey:url]) {
-        [dict setObject:class forKey:url];
-    }
-    return YES;
-}
-
-+ (BOOL)openURL:(NSString *)url {
-    NSMutableDictionary *dict = [XCRouter shareInstance].routerDict;
-    if (![dict objectForKey:url]) {
-        return NO;
-    }
-    Class class = [dict objectForKey:url];
-    UIViewController *vc = [[class alloc] init];
-    // TODO: add push or present or tab    
-    
-    return YES;
-}
-
-+ (instancetype)shareInstance {
-    static XCRouter *instance = nil;
-    // ... once    
-    return instance;
-}
-
-@end
-```
-### 添加跳转传参  
-在项目中，路由功能并不只是单纯的页面跳转，同时也要提供跳转时所必要的参数，而参数的来源途径一般有两种：**后台URL携带** & **Native传参**。   
-而router的注册表的key值一般为URL的path的值：  
-例如：URL为 *www.router.com/main/*  时可以用 */main* 作为key值。  
-而跳转时我们则需要传递参数，所以可以添加一个接口来实现，例如下面的接口：   
-```
-+ (BOOL)openURL:(NSURL *)url parameter:(NSDictionary *)parameter;
-```
-那么接下来会介绍下不同途径下的参数获取：   
-**1. 后台URL**  
-我们可以根据后台返回的URL解析出path和query,并作为参数进行跳转；query也就是URL后面的参数部分，可以自己获取每个字段的值，并创建一个dictionary传递过去。   
-**2. Native传参**  
-这个就是自己构建parameter来进行传参就可以了  
-
-### 添加跳转前的二次验证  
-除了参数部分，项目中我们还经常有根据某些条件来判断是否要路由到某页面的需求，即只有满足条件时才跳转，这种时候可以通过改进注册表的数据结构来满足该需求。即通过更改注册表中的value的值来完成跳转前的二次验证。   
-二次验证一般都是通过一个方法或block来实现，根据返回值判断下一部的路由需求。那么我们需要保存下每个VC所对应的block。   
-
-即注册时传入URL，ViewController Class， 二次验证的Block。将以上数据构建一个新的dictionary，并将该dictionary作为value保存在注册表中，如下：   
-```
-    // 注册表保存二次验证的block，即handler，路由时获取handler，根据返回值来判断是否路由
-    NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-    [dict setObject:URL forKey:kRouterURLKey];
-    [dict setObject:class forKey:kRouterViewControllerKey];
-    [dict setObject:handler forKey:kRouterHandlerKey];
-    
-    [routerDict setObject:dict forKey:URL];
-```
-### 组件化注册router   
-***以下方法只是停留在理论上，还没有在实际项目中应用过：***    
-如果项目中使用了组件化，那么router组件必定是一个基础组件，会被很多上层组件所使用。而且在组件化的工程中，通常会在组件中添加或更改新的注册表。这种情况下，如果每个组件都需要在router组件中去更改，则会造成不必要的麻烦。  
-为了免去修改基础组件的麻烦，这里可以使用一下load方法，在上层组件中实现router的分类，并在该分类的load方法中注册新的页面。  
-例如：在增加新的组件时，可以在该组件中增加一个新的router的Module分类，并在load方法中添加注册表。
-```
-@implementation XCRouter (Module)
-
+@implementation LoadFather
 + (void)load {
-    [XCRouter regisiteURL:[NSURL URLWithString:@"/xc/red"] withViewController:[XCRedViewController class]];
-    [XCRouter regisiteURL:[NSURL URLWithString:@"/xc/blue"] withViewController:[XCBlueViewController class]];
-    [XCRouter regisiteURL:[NSURL URLWithString:@"/xc/yellow"] withViewController:[XCYellowViewController class]];
+    NSLog(@"LoadFather Load");
 }
++ (void)initialize {
+    NSLog(@"LoadFather initialize");
+}
+@end
 
+/// 子类
+@interface LoadChild : LoadFather
+@end
+@implementation LoadChild
+@end
+
+/// 子子类
+@interface LoadChildChild : LoadChild
+@end
+@implementation LoadChildChild
++ (void)load {
+    NSLog(@"LoadChildChild Load");
+}
++ (void)initialize {
+    NSLog(@"LoadChildChild initialize");
+}
+@end
+
+/// 分类
+@interface LoadChildChild (Category)
+@end
+@implementation LoadChildChild (Category)
++ (void)load {
+    NSLog(@"LoadChildChild Category Load");
+}
++ (void)initialize {
+    NSLog(@"LoadChildChild Category initialize");
+}
 @end
 ```
 
-***其他方法***     
-在基础组件中增加注册接口，在接口实现时，通过runtime获取该对象所有方法，如果是特定字段开头的，则调用。而注册的方法在该类的分类中实现。   
-例如，执行该类所有以`load_`开头的方法，在各个组件中添加注册类的分类，并实现对应的`load_`方法，具体的注册则在该方法内实现。这种实现的好处是，注册接口的调用是在`didFinishLanuch`中实现的。         
 
-### load注意事项 
-load方法调用在`didFinishLaunchingWithOptions`之前，如果load方法内操作较多，会增加app启动时间，所以不要在load方法内做较多操作，该方法也不能被滥用。   
-而load的调用顺序也是有顺序的，其顺序主要是由TARGETS中的Build Phases中的Compile Sources文件的引用顺序来控制的。     
-例如：sources顺序如下时   
 
-![image](https://github.com/littleGaox/maqy.github.io/blob/master/_postImage/B7DC6A29-AC59-462F-B580-9E77AC3669CC.png?raw=true)
+如上定义好继承关系后，执行 `  [LoadChildChild new];`得到如下输出：
 
-其输出结果为  
-> 2017-11-19 13:41:13.009 Test[1154:49587] XCBlueViewController   
-> 2017-11-19 13:41:13.012 Test[1154:49587] XCYellowViewController    
-> 2017-11-19 13:41:13.013 Test[1154:49587] XCRedViewController
+```
+2020-05-24 23:53:33.107923+0800 test[56356:1702538] LoadFather Load
+2020-05-24 23:53:33.108433+0800 test[56356:1702538] LoadChildChild Load
+2020-05-24 23:53:33.108522+0800 test[56356:1702538] LoadChildChild Category Load
+2020-05-24 23:53:33.168233+0800 test[56356:1702538] LoadFather initialize
+2020-05-24 23:53:33.168350+0800 test[56356:1702538] LoadFather initialize
+2020-05-24 23:53:33.168447+0800 test[56356:1702538] LoadChildChild Category initialize
+```
 
-而改为如下时：   
+#### 结论1
 
-![image](https://github.com/littleGaox/maqy.github.io/blob/master/_postImage/B5129BDD-D14C-4062-B958-A4FB5A6DCDE2.png?raw=true)
+可以看到，load的调用顺序是 先父类--->再子类--->再分类的关系。
 
-结果为  
+-------
 
-> 2017-11-19 13:47:35.857 Test[1190:53707] XCYellowViewController    
-> 2017-11-19 13:47:35.860 Test[1190:53707] XCRedViewController   
-> 2017-11-19 13:47:35.861 Test[1190:53707] XCBlueViewController
+那么父类的分类会先于子类调用吗？答案是不会。
 
-**load的调用顺序是受sources顺序控制的，但是也跟是否是分类有关，同时跟依赖关系也有关系，这个还需要具体验证。**
+为什么呢？
+
+因为这个和编译器的编译顺序有关，编译器在链接过程中，会先链接父类，再链接子类，最后链接分类，不管是谁的分类都是最后链接的。
+
+--------
+
+其实这个方法的同类型的加载顺序是可以微调的，在 `compile source`里调整文件顺序可以进行微调，但怎么调也不能讲子类调到父类前，分类调到类前
+
+
+
+#### 结论2
+
+initialize 方法是参与继承体系的，也就是会覆盖调用
+
+------
+
+所以使用该方法的时候，官方文档也明确指出需要在方法里判断
+
+```
++ (void)initialize {
+  if (self == [ClassName self]) {
+    // ... do the initialization ...
+  }
+}
+```
+
+这里为什么要判断类型呢？
+
+因为子类没实现的时候会调用父类的，是参与继承体系的。
+
+假设一个常见的场景：
+
+```
+class Father {
+	func initialize() {
+		static var map = Int()
+	}
+}
+
+class A: Father {
+	func doSomeThing() {
+		map.append(10)
+	}
+}
+
+class B: Father {
+	func doSomeThing() {
+		map.append(20)
+	}
+}
+... 
+```
+
+这里会容易产生野指针的问题，为什么呢？
+
+因为A和B没有实现initialize方法，那么在初始调用时会调用父类的，每次都会初始一个新的map，那么如果这时候正好A或B拿到的还是原来的map的指针，但是他已经被释放了，那么就会产生 `unrecognized selector sent to instance`的崩溃
+
+那怎么解决呢？
+
+一个就是在initialize里加上类型判断
+
+二个就是不要用这个方法啦
+
+
+
+#### 结论3
+
+最好不要用runtime的方法，如果理解不清的话容易造成很多问题
+
+而且load还会增加启动时长
+

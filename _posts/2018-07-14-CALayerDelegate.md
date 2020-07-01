@@ -8,7 +8,6 @@ header-img: img/post-bg-os-metro.jpg
 catalog: true
 tags:
     - iOS
-    - UIView 与 CALayer
 ---
 
 

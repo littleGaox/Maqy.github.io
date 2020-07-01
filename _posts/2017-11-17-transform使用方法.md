@@ -8,7 +8,6 @@ header-img: img/post-bg-github-cup.jpg
 catalog: true
 tags:
     - iOS
-    - transform
 ---
 
 ### transform使用方法

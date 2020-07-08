@@ -2,7 +2,7 @@
 layout:     post
 title:      CALayerDelegate
 subtitle:   
-date:       2018-07-14
+date:       2018-07-25
 author:     Maqy
 header-img: img/post-bg-os-metro.jpg
 catalog: true
